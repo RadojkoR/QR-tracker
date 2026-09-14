@@ -1,0 +1,24 @@
+# QR tracker — lepi URL-ovi: /card → q.php?c=card
+# Poddomen go.webhubstudio.com, document root je ovaj folder.
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    # Ne diraj postojeće fajlove i foldere (dashboard.php, src/, data/)
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # /card, /flyer, /van ...
+    RewriteRule ^([A-Za-z0-9_-]{1,40})/?$ q.php?c=$1 [L,QSA]
+</IfModule>
+
+# Goli koren poddomena vodi na podrazumevani kod
+DirectoryIndex q.php
+
+# Tracking URL ne treba u Google rezultatima
+<IfModule mod_headers.c>
+    Header set X-Robots-Tag "noindex, nofollow"
+</IfModule>
+
+Options -Indexes
