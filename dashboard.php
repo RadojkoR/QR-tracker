@@ -8,6 +8,63 @@ require_once __DIR__ . '/src/layout.php';
 
 qr_require_auth();
 
+/* ── Veza sa bazom — umesto golog 500 pokaži šta ne valja ─────────────── */
+
+try {
+    qr_db();
+} catch (Throwable $e) {
+    error_log('[qr-tracker dashboard] ' . $e->getMessage());
+    qr_db_error_page($e);
+    exit;
+}
+
+/** Stranica sa uzrokom greške baze. Vidi je samo prijavljen admin; lozinka baze nije u poruci. */
+function qr_db_error_page(Throwable $e): void
+{
+    $msg  = $e->getMessage();
+    $hint = match (true) {
+        str_contains($msg, 'could not find driver')
+            => 'PHP na serveru nema MySQL ekstenziju. cPanel → Select PHP Version → Extensions: uključi <b>pdo_mysql</b>.',
+        str_contains($msg, '[1045]')
+            => 'Pogrešan korisnik ili lozinka baze. Proveri <code>QR_MYSQL_USER</code> (puno ime, sa prefiksom naloga) i <code>QR_MYSQL_PASS</code> (lozinka <b>korisnika baze</b>, ne cPanel naloga).',
+        str_contains($msg, '[1044]')
+            => 'Lozinka je dobra, ali korisnik ne može u ovu bazu. Jedno od dvoje: (1) ime baze u <code>QR_MYSQL_NAME</code> nije tačno — mora biti puno ime sa prefiksom; ili (2) korisnik nije dodat u bazu: cPanel → MySQL Databases → <b>Add User To Database</b> → izaberi korisnika i bazu → ALL PRIVILEGES.',
+        str_contains($msg, '[1049]')
+            => 'Baza sa tim imenom ne postoji. Proveri <code>QR_MYSQL_NAME</code> — puno ime sa prefiksom, tačno kako piše u cPanel → MySQL Databases.',
+        str_contains($msg, '[2002]'), str_contains($msg, '[2006]')
+            => 'MySQL server nije dostupan na toj adresi. Na cPanelu <code>QR_MYSQL_HOST</code> treba da bude <code>localhost</code>.',
+        str_contains($msg, 'unable to open database'), str_contains($msg, 'readonly')
+            => 'Na serveru je <code>QR_DB_DRIVER</code> postavljen na <code>sqlite</code>. Za cPanel mora biti <code>mysql</code>.',
+        default
+            => 'Proveri MySQL podatke u <code>src/config.php</code> na serveru.',
+    };
+    http_response_code(500);
+    ?>
+<!doctype html>
+<html lang="sr">
+<head>
+<?php qr_head('Greška baze'); ?>
+</head>
+<body>
+<?php qr_topbar('dashboard.php'); ?>
+<main class="page" style="max-width:760px">
+  <section class="card">
+    <div class="card-head"><h2 style="color:var(--danger)">Dashboard ne može da se poveže sa bazom</h2></div>
+    <p style="margin:0 0 14px"><?= $hint ?></p>
+    <div class="sub" style="margin-bottom:6px">Poruka baze:</div>
+    <pre style="white-space:pre-wrap;word-break:break-word;background:var(--surface-2);border:1px solid var(--line);border-radius:9px;padding:10px 12px;margin:0;font-size:12.5px"><?= h($msg) ?></pre>
+    <p class="sub" style="margin:14px 0 0">
+      Trenutno podešavanje: drajver <code><?= h(QR_DB_DRIVER) ?></code>
+      <?php if (QR_DB_DRIVER === 'mysql'): ?>· host <code><?= h(QR_MYSQL_HOST) ?></code> · baza <code><?= h(QR_MYSQL_NAME) ?></code> · korisnik <code><?= h(QR_MYSQL_USER) ?></code><?php endif; ?>
+    </p>
+    <p class="sub" style="margin:8px 0 0">Posle izmene <code>src/config.php</code> na serveru samo osveži ovu stranicu. Skeniranja se ne upisuju dok baza ne radi, ali posetioci i dalje stižu na sajt.</p>
+  </section>
+</main>
+</body>
+</html>
+    <?php
+}
+
 $days = (int) ($_GET['days'] ?? 30);
 $days = in_array($days, [7, 30, 90, 365], true) ? $days : 30;
 

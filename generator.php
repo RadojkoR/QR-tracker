@@ -585,7 +585,9 @@ header('X-Robots-Tag: noindex, nofollow');
   $('dlSvg').addEventListener('click', function () {
     if (!current) return;
     var svg = buildSvg(current.qr, current.n, margin(), $('dark').value, $('light').value, $('transparent').checked);
-    download(new Blob(['<?xml version="1.0" encoding="UTF-8"?>\n' + svg], { type: 'image/svg+xml' }), current.name + '.svg');
+    // XML zaglavlje je namerno razdvojeno na '<' i '?xml': uz short_open_tag=On (čest na cPanelu)
+    // PHP bi spojeni zapis čitao kao svoj početni tag i cela stranica bi vraćala 500.
+    download(new Blob(['<' + '?xml version="1.0" encoding="UTF-8"?>\n' + svg], { type: 'image/svg+xml' }), current.name + '.svg');
   });
 
   $('dlPng').addEventListener('click', function () {
