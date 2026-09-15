@@ -23,8 +23,9 @@ DirectoryIndex q.php
 
 Options -Indexes
 
-# Spisak fajlova koji pravi GitHub deploy (FTP-Deploy-Action) — ne treba da bude javan
-<Files ".ftp-deploy-sync-state.json">
+# Fajlovi koji stignu deployem, a nisu za browser: dokumentacija, skripte, šabloni
+# i spisak fajlova koji pravi GitHub deploy (FTP-Deploy-Action).
+<FilesMatch "(\.(md|py|sample\.php)|^\.ftp-deploy-sync-state\.json)$">
     <IfModule mod_authz_core.c>
         Require all denied
     </IfModule>
@@ -32,4 +33,4 @@ Options -Indexes
         Order allow,deny
         Deny from all
     </IfModule>
-</Files>
+</FilesMatch>

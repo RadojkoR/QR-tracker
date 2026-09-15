@@ -19,8 +19,8 @@ Posetilac vidi samo da se sajt otvorio.
 |---|---|
 | Dashboard | `https://go.webhubstudio.com/dashboard.php` |
 | Korisnik | `radojko` |
-| Lozinka | `orbit-lumen-8232` — **promeni je**, vidi dole |
-| Token za probe | `dfxt_jE7n1-P` — `?nt=` parametar koji ne beleži posetu |
+| Lozinka | u password menadžeru — **nikad je ne upisuj u ovaj fajl** |
+| Token za probe | `QR_NOTRACK_TOKEN` u `src/config.php` — `?nt=` parametar koji ne beleži posetu |
 
 `QR_SALT` u `src/config.php` je već generisan. **Sačuvaj ga u password
 menadžeru i nikada ga ne menjaj** — promena znači da brojanje različitih
@@ -204,7 +204,7 @@ kasnijim isključivanjima.
 ### Sopstvene probe — bolje nego brisati posle
 
 ```
-https://go.webhubstudio.com/q.php?c=card&nt=dfxt_jE7n1-P
+https://go.webhubstudio.com/q.php?c=card&nt=TOKEN
 ```
 
 Sa tačnim tokenom (`QR_NOTRACK_TOKEN` u `src/config.php`) tracker preusmeri ali
@@ -296,7 +296,7 @@ Na Linuxu/macOS-u je ista komanda, samo `php` umesto `C:\xampp\php\php.exe`.
 |---|---|
 | `http://localhost:8080/dashboard.php` | traži korisnika i lozinku, pa prikaže statistiku |
 | `http://localhost:8080/generator.php` | QR generator, pregled i provera „kod se čita" |
-| `http://localhost:8080/card?nt=dfxt_jE7n1-P` | otvori sajt, **ništa ne upiše** (token) |
+| `http://localhost:8080/card?nt=TOKEN` | otvori sajt, **ništa ne upiše** (token) |
 | `http://localhost:8080/card` | otvori sajt i **upiše skeniranje** — vidi se u dashboardu |
 | `http://localhost:8080/src/config.php` | **403** |
 | `http://localhost:8080/data/qr.sqlite` | **403** |
@@ -326,7 +326,7 @@ Telefon ne vidi `localhost` računara, pa server mora da sluša na mreži:
 2. Nađi IP adresu računara: `ipconfig` → *IPv4 Address*, npr. `192.168.1.20`.
 3. Kad Windows Firewall pita — dozvoli pristup na **privatnoj** mreži.
 4. Telefon mora biti na **istom Wi-Fi-ju**. Proveri u browseru telefona:
-   `http://192.168.1.20:8080/card?nt=dfxt_jE7n1-P` — treba da se otvori sajt.
+   `http://192.168.1.20:8080/card?nt=TOKEN` — treba da se otvori sajt.
 5. U generatoru promeni *Adresa trackera* u `http://192.168.1.20:8080`,
    skeniraj kod sa ekrana i osveži dashboard — skeniranje treba da se pojavi.
 
