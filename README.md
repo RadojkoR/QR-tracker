@@ -63,9 +63,31 @@ zonu, pa preuzmeš SVG (za štampu) ili PNG. Adresa u QR-u je
 „Proizvoljan link" pravi običan QR koji **ne ide kroz tracker** i ne vidi se u
 statistici. Nova praćena kampanja se i dalje dodaje u `QR_DESTINATIONS`.
 
+**Logo u sredini** — izabereš ili prevučeš sliku (PNG, JPG, WEBP, SVG, do 2 MB).
+Slika se obrađuje u browseru i ne šalje se na server. Moduli ispod logoa se
+uklone, korekcija greške se prebaci na H, a logo se ugradi i u SVG i u PNG.
+Dva oblika:
+
+| Oblik | Za šta | Veličina |
+|---|---|---|
+| **Traka preko cele širine** | široki logo / natpis; traka ima svoju boju | visina 8–18% |
+| **Kvadrat u sredini** | ikonica, kvadratni znak | 12–30% |
+
+Traka seče kod po celoj širini, pa generator za nju uzima **najmanje verziju 6**
+(41×41 modul): na manjim kodovima i traka od 8% zna da ga učini nečitljivim,
+a od verzije 6 uz H traka do 18% se čitala na svim kampanjama. Kod je zato
+gušći — traku štampaj **bar 2,5 cm**.
+
+**Zoom logoa** (40–300%, klizač ili dugmad − / +) uvećava i umanjuje samu sliku
+unutar trake ili kvadrata. Uvećan logo se odseče pola modula pre koda, pa zoom
+ne menja čitljivost — menja se samo koliki deo slike se vidi.
+Posle svake izmene generator sam skenira kod i javi „kod se čita" ili
+„kod se ne čita" — ali pravi test je i dalje skeniranje telefonom.
+
 QR se crta u browseru bibliotekom `assets/qrcode.js` (qrcode-generator 1.4.4,
-Kazuhiko Arase, MIT) — lokalna kopija, bez CDN-a. Folder `assets/` mora da ode
-na server zajedno sa ostalim.
+Kazuhiko Arase, MIT), a proverava se sa `assets/jsQR.js` (jsQR 1.4.0,
+Apache-2.0) — lokalne kopije, bez CDN-a. Folder `assets/` mora da ode na server
+zajedno sa ostalim.
 
 Lokalno testiranje: ako polje „Adresa trackera" promeniš na `localhost`,
 generator upozori — takav kod telefon ne može da otvori.
@@ -108,6 +130,16 @@ skeniranje pojavilo u dashboardu.
    define('QR_MYSQL_PASS', 'lozinka-iz-koraka-1');
    ```
    `QR_SALT` i heš lozinke ostaju kakvi jesu.
+
+   **GitHub deploy (`.github/workflows/deploy.yml`) nikad ne šalje
+   `src/config.php`** — namerno je u `.gitignore` jer sadrži lozinke. Zato se
+   na server otprema **ručno, jednom** (cPanel → File Manager → `src/`), i to
+   pre ili odmah posle prvog deploya. Bez njega svaka stranica puca. Deploy ga
+   posle ne dira. Kad kasnije promeniš nešto u lokalnom `config.php` (npr. nova
+   kampanja u `QR_DESTINATIONS`), istu izmenu ručno uneseš i u serverski.
+
+   Deploy ide preko **FTPS**-a. Ako padne sa greškom o TLS-u, hosting ne
+   podržava FTPS — u `deploy.yml` vrati `protocol: ftp`.
 5. **PHP 8.1+** — cPanel → MultiPHP Manager. Kod koristi `match` i
    `str_contains`, na 7.x puca.
 6. **HTTPS** — SSL/TLS Status → Run AutoSSL. Basic Auth bez HTTPS-a šalje
@@ -222,20 +254,103 @@ dalje radi.
 
 ---
 
-## Lokalni razvoj
+## Lokalno testiranje
 
-```bash
-php -S localhost:8080 -t .
-curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" \
-  -A "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) Safari/604.1" \
-  "http://localhost:8080/q.php?c=card"
+### Šta treba
+
+Samo **PHP 8.1+** sa `pdo_sqlite` ekstenzijom. XAMPP to već ima
+(`C:\xampp\php\php.exe`). **MySQL i Apache nisu potrebni** — lokalno se
+koristi SQLite (`QR_DB_DRIVER = 'sqlite'`), a tabele se prave same.
+
+Folder projekta **ne mora** da bude u `C:\xampp\htdocs` — može da stoji bilo gde.
+
+Provera da PHP ima sve:
+
+```powershell
+C:\xampp\php\php.exe -v                          # 8.1 ili novije
+C:\xampp\php\php.exe -m | findstr sqlite         # mora da ispiše pdo_sqlite
 ```
 
-Lepi URL `/card` **ne radi** na PHP ugrađenom serveru — nema `mod_rewrite`.
-Lokalno se testira preko `q.php?c=card`; to nije greška.
+### 1. Pokretanje servera
 
-Pre prelaska na produkciju obriši `data/qr.sqlite` da test podaci ne uđu u
-statistiku.
+Otvori terminal (PowerShell ili `cmd`) i pokreni:
+
+```powershell
+cd "E:\Claude Projects\QR Code Tracker\qr"
+C:\xampp\php\php.exe -S localhost:8080 -t . tools/router.php
+```
+
+Treba da se pojavi `Development Server (http://localhost:8080) started`.
+**Prozor ostavi otvoren** — server radi dok je prozor otvoren. Gasi se sa
+**Ctrl + C**.
+
+`tools/router.php` lokalno radi ono što na cPanelu radi `.htaccess`: lepi URL
+`/card` radi, a `src/` i `data/` vraćaju 403. Bez njega (`php -S localhost:8080 -t .`)
+sve ostalo radi, ali `/card` ne — tada se koristi `q.php?c=card`.
+
+Na Linuxu/macOS-u je ista komanda, samo `php` umesto `C:\xampp\php\php.exe`.
+
+### 2. Šta proveriti u browseru
+
+| Adresa | Očekivano |
+|---|---|
+| `http://localhost:8080/dashboard.php` | traži korisnika i lozinku, pa prikaže statistiku |
+| `http://localhost:8080/generator.php` | QR generator, pregled i provera „kod se čita" |
+| `http://localhost:8080/card?nt=dfxt_jE7n1-P` | otvori sajt, **ništa ne upiše** (token) |
+| `http://localhost:8080/card` | otvori sajt i **upiše skeniranje** — vidi se u dashboardu |
+| `http://localhost:8080/src/config.php` | **403** |
+| `http://localhost:8080/data/qr.sqlite` | **403** |
+
+Prijava je ista kao na produkciji (tabela *Pristupni podaci* gore).
+
+### 3. Test iz komandne linije (opciono)
+
+```bash
+curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" \
+  -A "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) Safari/604.1" \
+  "http://localhost:8080/card"
+# 302 https://webhubstudio.com/?utm_source=qr&utm_medium=print&utm_campaign=card
+```
+
+Bez `-A` sa telefonskim User-Agentom `curl` se prepoznaje kao bot i skeniranje
+se **ne upisuje** — preusmeravanje i dalje radi. To je namerno.
+
+### 4. Skeniranje pravim telefonom (opciono)
+
+Telefon ne vidi `localhost` računara, pa server mora da sluša na mreži:
+
+1. Pokreni server na svim adresama:
+   ```powershell
+   C:\xampp\php\php.exe -S 0.0.0.0:8080 -t . tools/router.php
+   ```
+2. Nađi IP adresu računara: `ipconfig` → *IPv4 Address*, npr. `192.168.1.20`.
+3. Kad Windows Firewall pita — dozvoli pristup na **privatnoj** mreži.
+4. Telefon mora biti na **istom Wi-Fi-ju**. Proveri u browseru telefona:
+   `http://192.168.1.20:8080/card?nt=dfxt_jE7n1-P` — treba da se otvori sajt.
+5. U generatoru promeni *Adresa trackera* u `http://192.168.1.20:8080`,
+   skeniraj kod sa ekrana i osveži dashboard — skeniranje treba da se pojavi.
+
+Generator će upozoriti da je adresa lokalna — tako i treba. **Takav QR se
+nikada ne šalje u štampu**; za štampu adresa mora da bude
+`https://go.webhubstudio.com`.
+
+### 5. Česti problemi
+
+| Problem | Rešenje |
+|---|---|
+| `'php' is not recognized` | koristi punu putanju `C:\xampp\php\php.exe` |
+| `could not find driver` | u `C:\xampp\php\php.ini` ukloni `;` ispred `extension=pdo_sqlite` |
+| `Address already in use` | port je zauzet — probaj `localhost:8081` |
+| `/card` vraća 404 | server je pokrenut bez `tools/router.php` |
+| stalno traži lozinku | pogrešna lozinka, ili je `QR_DASHBOARD_PASS_HASH` prazan |
+| telefon ne otvara stranicu | nije isti Wi-Fi, firewall blokira, ili je server pokrenut na `localhost` umesto `0.0.0.0` |
+
+### 6. Pre prelaska na produkciju
+
+Test skeniranja ostaju u `data/qr.sqlite`. Pre deploya **obriši taj fajl**
+(ili u dashboardu: *Upravljanje podacima → Pun reset*), da probe ne uđu u
+statistiku. `tools/router.php` može da ostane — van ugrađenog PHP servera
+odmah vraća 404.
 
 ---
 

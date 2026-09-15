@@ -1,0 +1,27 @@
+name: Deploy to cPanel via FTP
+
+on:
+  push:
+    branches:
+      - main   # ili master, zavisi koju granu koristiš
+
+jobs:
+  ftp-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: FTP Deploy
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps          # šifrovano — lozinka i fajlovi ne idu kao čist tekst
+          local-dir: ./           # koji folder iz repoa da šalje
+          server-dir: ./          # pošto je FTP nalog već vezan za pravi folder na cPanel-u
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**

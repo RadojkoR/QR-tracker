@@ -54,6 +54,29 @@ header('X-Robots-Tag: noindex, nofollow');
   .actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}
   .actions .btn{justify-content:center}
   .note{color:var(--muted);font-size:12.5px;margin:14px 0 0}
+
+  .drop{display:flex;align-items:center;gap:14px;border:1.5px dashed var(--line);border-radius:11px;padding:14px 16px;
+    cursor:pointer;color:var(--muted);background:var(--surface-2);transition:border-color .15s,background .15s;margin-bottom:16px}
+  .drop:hover,.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+  .drop:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
+  .drop input{position:absolute;opacity:0;width:1px;height:1px}
+  .drop svg{width:26px;height:26px;flex:none;color:var(--accent-ink)}
+  .drop strong{color:var(--ink)}
+  .drop small{font-size:12px}
+  .logo-file{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:11px;padding:8px 8px 8px 8px}
+  .logo-file img{width:44px;height:44px;object-fit:contain;border-radius:7px;flex:none;
+    background:repeating-conic-gradient(var(--surface-2) 0 25%,var(--surface) 0 50%) 0 0/10px 10px;border:1px solid var(--line)}
+  .logo-file span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  .zoom{display:flex;align-items:center;gap:8px}
+  .zoom input{flex:1;min-width:0}
+  .zoom .btn{width:32px;justify-content:center;padding:4px 0;font-size:16px;line-height:1}
+  .field output{float:right;color:var(--muted);font-weight:500;font-variant-numeric:tabular-nums}
+
+  .scan{display:flex;gap:8px;align-items:center;font-size:12.5px;font-weight:550;border-radius:8px;padding:7px 10px;margin-top:12px}
+  .scan.ok{color:var(--good);background:var(--good-soft)}
+  .scan.bad{color:var(--danger);background:var(--danger-soft)}
+  .scan.wait{color:var(--muted);background:var(--surface-2)}
 </style>
 </head>
 <body>
@@ -116,6 +139,46 @@ header('X-Robots-Tag: noindex, nofollow');
       </div>
 
       <div class="group">
+        <p class="group-title">Logo u sredini</p>
+        <label class="drop" id="drop">
+          <input type="file" id="logoFile" accept="image/png,image/jpeg,image/webp,image/svg+xml">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4m0 0-4 4m4-4 4 4M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+          <span><strong>Izaberi sliku</strong> ili je prevuci ovde<br><small>PNG, JPG, WEBP ili SVG · do 2 MB</small></span>
+        </label>
+        <div class="logo-file" id="logoInfo" hidden>
+          <img id="logoThumb" alt="">
+          <span id="logoName"></span>
+          <button class="btn sm" type="button" id="logoRemove">Ukloni</button>
+        </div>
+        <div id="logoOptions" hidden style="margin:14px 0 16px">
+          <div class="segmented full" role="radiogroup" aria-label="Položaj logoa" style="margin-bottom:14px">
+            <label><input type="radio" name="shape" value="band" checked>Traka preko cele širine</label>
+            <label><input type="radio" name="shape" value="square">Kvadrat u sredini</label>
+          </div>
+          <div class="field" id="bandColorField" style="margin-bottom:14px">
+            <span>Boja trake</span>
+            <label class="color"><input type="color" id="bandColor" value="#ffffff"><code id="bandColorHex">#ffffff</code></label>
+          </div>
+          <div class="field" style="margin-bottom:0">
+            <span id="logoSizeLabel">Visina trake <output id="logoSizeOut">14%</output></span>
+            <input type="range" id="logoSize" min="8" max="18" value="14" step="1">
+            <div class="help" id="logoHelp"></div>
+          </div>
+          <div class="field" style="margin:14px 0 0">
+            <span>Zoom logoa <output id="logoZoomOut">100%</output></span>
+            <div class="zoom">
+              <button class="btn sm" type="button" id="zoomOut" aria-label="Umanji logo">−</button>
+              <input type="range" id="logoZoom" min="40" max="300" value="100" step="5" aria-label="Zoom logoa">
+              <button class="btn sm" type="button" id="zoomIn" aria-label="Uvećaj logo">+</button>
+              <button class="link-btn" type="button" id="zoomReset" title="Vrati na 100%">Vrati</button>
+            </div>
+            <div class="help">Uvećan logo se odseče na ivici svoje površine — nikad ne prekriva kod.</div>
+          </div>
+        </div>
+        <div class="warns" id="logoErr" hidden style="margin:10px 0 16px"></div>
+      </div>
+
+      <div class="group">
         <p class="group-title">Tehnički</p>
         <label class="field">
           <span>Korekcija greške</span>
@@ -153,6 +216,7 @@ header('X-Robots-Tag: noindex, nofollow');
         <button class="btn sm" type="button" id="copyBtn">Kopiraj</button>
       </div>
 
+      <div class="scan" id="scan" hidden></div>
       <div class="warns" id="warn" hidden></div>
 
       <dl class="specs" id="meta" hidden>
@@ -181,13 +245,16 @@ header('X-Robots-Tag: noindex, nofollow');
 </main>
 
 <script src="assets/qrcode.js"></script>
+<script src="assets/jsQR.js"></script>
 <script>
 (function () {
   var CFG = <?= $js ?>;
   var $ = function (id) { return document.getElementById(id); };
   qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
 
-  var current = null; // { qr, n, name }
+  var current = null;   // { qr, n, name, text }
+  var logo = null;      // { url, img, w, h, name }
+  var DATA_URL = /^data:image\/(png|jpeg|webp|svg\+xml);base64,[A-Za-z0-9+\/=]+$/;
 
   function mode() { return document.querySelector('input[name=mode]:checked').value; }
 
@@ -213,27 +280,144 @@ header('X-Robots-Tag: noindex, nofollow');
     return { text: base + '/' + code, name: 'qr-' + code, code: code, base: base };
   }
 
+  /* ── Logo: traka preko cele širine ili kvadrat u sredini ─────────────── */
+
+  function shape() { return document.querySelector('input[name=shape]:checked').value; }
+
+  // Traka seče ceo red modula — na malim kodovima to odnese previše podataka odjednom.
+  // Merenjem: od verzije 6 uz korekciju H traka do 18% visine se i dalje čita.
+  var BAND_MIN_VERSION = 6;
+
+  // Oblast bez modula, u modulima. Ista parnost kao n, da stoji tačno u centru.
+  function logoBox(n) {
+    if (!logo) return null;
+    var size = Math.round(n * parseInt($('logoSize').value, 10) / 100);
+    if ((n - size) % 2) size++;
+    var start = (n - size) / 2;
+    return shape() === 'band'
+      ? { band: true, r0: start, c0: 0, rows: size, cols: n }
+      : { band: false, r0: start, c0: start, rows: size, cols: size };
+  }
+
+  function makeDark(qr, n) {
+    var box = logoBox(n);
+    return function (r, c) {
+      if (box && r >= box.r0 && r < box.r0 + box.rows && c >= box.c0 && c < box.c0 + box.cols) return false;
+      return qr.isDark(r, c);
+    };
+  }
+
+  // Traka ide od ivice do ivice slike (preko tihe zone); kvadrat nema posebnu pozadinu.
+  function bandRect(box, m) {
+    return box.band ? { x: 0, y: box.r0 + m, w: box.cols + 2 * m, h: box.rows } : null;
+  }
+
+  // Na 100% se logo uklopi (contain) sa pola modula razmaka od koda; zoom ga skalira oko centra.
+  function logoRect(box, m) {
+    var maxW = box.cols - 1, maxH = box.rows - 1;
+    var ratio = logo.w && logo.h ? logo.w / logo.h : 1;
+    var zoom = parseInt($('logoZoom').value, 10) / 100;
+    var w = Math.min(maxW, maxH * ratio) * zoom, h = w / ratio;
+    return { x: box.c0 + m + (box.cols - w) / 2, y: box.r0 + m + (box.rows - h) / 2, w: w, h: h };
+  }
+
+  // Površina van koje se logo odseče: oblast bez modula, uvučena pola modula. Uvećan logo tako
+  // ne dodiruje module i ne ulazi u tihu zonu — oba su obarala skeniranje pri velikom zoomu.
+  function clipRect(box, m) {
+    return { x: box.c0 + m + 0.5, y: box.r0 + m + 0.5, w: box.cols - 1, h: box.rows - 1 };
+  }
+
   function buildSvg(qr, n, m, dark, light, transparent) {
-    var size = n + 2 * m, d = '';
+    var size = n + 2 * m, d = '', isDark = makeDark(qr, n);
     for (var r = 0; r < n; r++) {
       var c = 0;
       while (c < n) {
-        if (!qr.isDark(r, c)) { c++; continue; }
+        if (!isDark(r, c)) { c++; continue; }
         var start = c;
-        while (c < n && qr.isDark(r, c)) c++;
+        while (c < n && isDark(r, c)) c++;
         d += 'M' + (start + m) + ' ' + (r + m) + 'h' + (c - start) + 'v1h-' + (c - start) + 'z';
       }
     }
-    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + size + ' ' + size + '" ' +
-      'width="' + size * 10 + '" height="' + size * 10 + '" shape-rendering="crispEdges">' +
+    var extra = '';
+    var box = logoBox(n);
+    if (box) {
+      var br = bandRect(box, m);
+      if (br) extra += '<rect x="' + br.x + '" y="' + br.y + '" width="' + br.w + '" height="' + br.h + '" fill="' + $('bandColor').value + '"/>';
+      var lr = logoRect(box, m), cr = clipRect(box, m);
+      extra += '<clipPath id="logo-clip"><rect x="' + cr.x + '" y="' + cr.y + '" width="' + cr.w + '" height="' + cr.h + '"/></clipPath>' +
+        '<image clip-path="url(#logo-clip)" x="' + lr.x + '" y="' + lr.y + '" width="' + lr.w + '" height="' + lr.h + '" ' +
+        'preserveAspectRatio="xMidYMid meet" href="' + logo.url + '" xlink:href="' + logo.url + '"/>';
+    }
+    return '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ' + size + ' ' + size + '" ' +
+      'width="' + size * 10 + '" height="' + size * 10 + '">' +
       (transparent ? '' : '<rect width="' + size + '" height="' + size + '" fill="' + light + '"/>') +
-      '<path fill="' + dark + '" d="' + d + '"/></svg>';
+      '<path fill="' + dark + '" shape-rendering="crispEdges" d="' + d + '"/>' + extra + '</svg>';
   }
 
   function pngPixels(n, m) {
     var target = parseInt($('pngSize').value, 10);
     return Math.max(1, Math.round(target / (n + 2 * m))) * (n + 2 * m);
   }
+
+  // PNG uvek sa pozadinom — isti crtež služi i za preuzimanje i za proveru skeniranja.
+  function drawCanvas(scale) {
+    var n = current.n, m = margin(), px = scale * (n + 2 * m), isDark = makeDark(current.qr, n);
+    var cv = document.createElement('canvas');
+    cv.width = cv.height = px;
+    var ctx = cv.getContext('2d');
+    ctx.fillStyle = $('light').value;
+    ctx.fillRect(0, 0, px, px);
+    ctx.fillStyle = $('dark').value;
+    for (var r = 0; r < n; r++)
+      for (var c = 0; c < n; c++)
+        if (isDark(r, c)) ctx.fillRect((c + m) * scale, (r + m) * scale, scale, scale);
+    var box = logoBox(n);
+    if (box) {
+      var br = bandRect(box, m);
+      if (br) {
+        ctx.fillStyle = $('bandColor').value;
+        ctx.fillRect(br.x * scale, br.y * scale, br.w * scale, br.h * scale);
+      }
+      var lr = logoRect(box, m), cr = clipRect(box, m);
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(cr.x * scale, cr.y * scale, cr.w * scale, cr.h * scale);
+      ctx.clip();
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(logo.img, lr.x * scale, lr.y * scale, lr.w * scale, lr.h * scale);
+      ctx.restore();
+    }
+    return cv;
+  }
+
+  /* ── Provera: da li se kod i dalje čita ───────────────────────────────── */
+
+  var scanTimer = null;
+  function scheduleScan() {
+    clearTimeout(scanTimer);
+    if (!current || typeof jsQR !== 'function') { $('scan').hidden = true; return; }
+    setScan('wait', 'Proveravam da li se kod čita…');
+    scanTimer = setTimeout(function () {
+      var res = null;
+      try {
+        var cv = drawCanvas(6);
+        var data = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height);
+        res = jsQR(data.data, cv.width, cv.height, { inversionAttempts: 'dontInvert' });
+      } catch (e) { $('scan').hidden = true; return; }
+      if (res && res.data === current.text) {
+        setScan('ok', '✓ Provereno: kod se čita');
+      } else {
+        setScan('bad', '✕ Kod se ne čita' + (logo ? ' — smanji logo ili uključi korekciju H' : ' — proveri boje i tihu zonu'));
+      }
+    }, 200);
+  }
+  function setScan(cls, text) {
+    $('scan').className = 'scan ' + cls;
+    $('scan').textContent = text;
+    $('scan').hidden = false;
+  }
+
+  /* ── Iscrtavanje ──────────────────────────────────────────────────────── */
 
   function render() {
     var isCampaign = mode() === 'campaign';
@@ -245,6 +429,15 @@ header('X-Robots-Tag: noindex, nofollow');
     var m = margin();
     $('darkHex').textContent = dark;
     $('lightHex').textContent = light;
+    var isBand = shape() === 'band';
+    $('bandColorHex').textContent = $('bandColor').value;
+    $('bandColorField').hidden = !isBand;
+    $('logoSizeLabel').firstChild.nodeValue = (isBand ? 'Visina trake ' : 'Veličina logoa ');
+    $('logoSizeOut').textContent = $('logoSize').value + '%';
+    $('logoZoomOut').textContent = $('logoZoom').value + '%';
+    $('logoHelp').textContent = isBand
+      ? 'Traka seče kod po celoj širini, pa je kod gušći (najmanje verzija ' + BAND_MIN_VERSION + ') — štampaj ga bar 2,5 cm. Slika se ne šalje na server.'
+      : 'Slika se obrađuje u browseru i ne šalje se na server. Uz logo koristi korekciju greške H.';
 
     $('urlOut').textContent = p.text || '—';
     $('urlOut').title = p.text;
@@ -254,11 +447,9 @@ header('X-Robots-Tag: noindex, nofollow');
       $('preview').innerHTML = '<span class="hint">Upiši link da se pojavi QR kod.</span>';
     } else {
       try {
-        var qr = qrcode(0, $('ecc').value);
-        qr.addData(p.text, 'Byte');
-        qr.make();
+        var qr = makeQr(p.text, $('ecc').value, logo && isBand ? BAND_MIN_VERSION : 0);
         var n = qr.getModuleCount();
-        current = { qr: qr, n: n, name: p.name };
+        current = { qr: qr, n: n, name: p.name, text: p.text };
         $('preview').innerHTML = buildSvg(qr, n, m, dark, light, transparent);
         $('mVer').textContent = (n - 17) / 4;
         $('mMod').textContent = n + '×' + n;
@@ -280,6 +471,13 @@ header('X-Robots-Tag: noindex, nofollow');
       warns.push('Slab kontrast između koda i pozadine — skeniranje može da ne radi.');
     }
     if (m < 4) warns.push('Tiha zona manja od 4 modula — neki čitači neće prepoznati kod.');
+    if (logo && $('ecc').value !== 'H') warns.push('Uz logo koristi korekciju greške H — logo pokriva deo koda.');
+    if (logo && isBand) {
+      var bc = $('bandColor').value;
+      if ((Math.max(luminance(bc), luminance(dark)) + 0.05) / (Math.min(luminance(bc), luminance(dark)) + 0.05) < 3) {
+        warns.push('Boja trake je preblizu boji koda — ivica trake se stapa sa modulima.');
+      }
+    }
 
     $('warn').textContent = '';
     warns.forEach(function (w) { var d = document.createElement('div'); d.textContent = '⚠ ' + w; $('warn').appendChild(d); });
@@ -292,7 +490,88 @@ header('X-Robots-Tag: noindex, nofollow');
     if (showTest) {
       $('testLink').href = 'q.php?c=' + encodeURIComponent(p.code) + '&nt=' + encodeURIComponent(CFG.token);
     }
+
+    scheduleScan();
   }
+
+  // Najmanja verzija koja staje, ali ne manja od minVersion (qrcode(0) bira sam).
+  function makeQr(text, ecc, minVersion) {
+    var qr = qrcode(0, ecc);
+    qr.addData(text, 'Byte');
+    qr.make();
+    if (minVersion && (qr.getModuleCount() - 17) / 4 < minVersion) {
+      qr = qrcode(minVersion, ecc);
+      qr.addData(text, 'Byte');
+      qr.make();
+    }
+    return qr;
+  }
+
+  // Svaki oblik pamti svoju veličinu; opseg klizača je izmeren proverom skeniranja.
+  var SIZES = { band: { min: 8, max: 18, value: 14 }, square: { min: 12, max: 30, value: 22 } };
+  var lastShape = shape();
+  function onShapeChange() {
+    SIZES[lastShape].value = $('logoSize').value;
+    lastShape = shape();
+    var s = SIZES[lastShape];
+    $('logoSize').min = s.min;
+    $('logoSize').max = s.max;
+    $('logoSize').value = s.value;
+    render();
+  }
+
+  /* ── Otpremanje logoa ─────────────────────────────────────────────────── */
+
+  function logoError(msg) {
+    $('logoErr').textContent = '';
+    if (msg) { var d = document.createElement('div'); d.textContent = '⚠ ' + msg; $('logoErr').appendChild(d); }
+    $('logoErr').hidden = !msg;
+  }
+
+  function setLogo(file) {
+    logoError('');
+    if (!file) return;
+    if (!/^image\/(png|jpeg|webp|svg\+xml)$/.test(file.type)) { logoError('Podržani su PNG, JPG, WEBP i SVG.'); return; }
+    if (file.size > 2 * 1024 * 1024) { logoError('Slika je veća od 2 MB.'); return; }
+
+    var reader = new FileReader();
+    reader.onload = function () {
+      var url = String(reader.result);
+      if (!DATA_URL.test(url)) { logoError('Sliku nije moguće pročitati.'); return; }
+      var img = new Image();
+      img.onload = function () {
+        logo = { url: url, img: img, w: img.naturalWidth, h: img.naturalHeight, name: file.name };
+        $('logoThumb').src = url;
+        $('logoName').textContent = file.name;
+        $('drop').hidden = true;
+        $('logoInfo').hidden = $('logoOptions').hidden = false;
+        $('ecc').value = 'H';                      // logo pokriva deo koda — treba maksimalna korekcija
+        $('logoZoom').value = 100;                 // nov logo kreće od uklopljene veličine
+        render();
+      };
+      img.onerror = function () { logoError('Sliku nije moguće učitati — probaj PNG.'); };
+      img.src = url;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  $('logoFile').addEventListener('change', function () { setLogo(this.files[0]); this.value = ''; });
+  $('logoRemove').addEventListener('click', function () {
+    logo = null;
+    $('drop').hidden = false;
+    $('logoInfo').hidden = $('logoOptions').hidden = true;
+    logoError('');
+    render();
+  });
+  ['dragenter', 'dragover'].forEach(function (ev) {
+    $('drop').addEventListener(ev, function (e) { e.preventDefault(); $('drop').classList.add('over'); });
+  });
+  ['dragleave', 'drop'].forEach(function (ev) {
+    $('drop').addEventListener(ev, function (e) { e.preventDefault(); $('drop').classList.remove('over'); });
+  });
+  $('drop').addEventListener('drop', function (e) { setLogo(e.dataTransfer.files[0]); });
+
+  /* ── Preuzimanje ──────────────────────────────────────────────────────── */
 
   function download(blob, filename) {
     var a = document.createElement('a');
@@ -311,17 +590,8 @@ header('X-Robots-Tag: noindex, nofollow');
 
   $('dlPng').addEventListener('click', function () {
     if (!current) return;
-    var n = current.n, m = margin(), px = pngPixels(n, m), s = px / (n + 2 * m);
-    var cv = document.createElement('canvas');
-    cv.width = cv.height = px;
-    var ctx = cv.getContext('2d');
-    ctx.fillStyle = $('light').value;               // PNG uvek sa pozadinom
-    ctx.fillRect(0, 0, px, px);
-    ctx.fillStyle = $('dark').value;
-    for (var r = 0; r < n; r++)
-      for (var c = 0; c < n; c++)
-        if (current.qr.isDark(r, c)) ctx.fillRect((c + m) * s, (r + m) * s, s, s);
-    cv.toBlob(function (b) { download(b, current.name + '.png'); }, 'image/png');
+    var n = current.n, m = margin();
+    drawCanvas(pngPixels(n, m) / (n + 2 * m)).toBlob(function (b) { download(b, current.name + '.png'); }, 'image/png');
   });
 
   $('copyBtn').addEventListener('click', function () {
@@ -332,14 +602,24 @@ header('X-Robots-Tag: noindex, nofollow');
     });
   });
 
-  ['code', 'base', 'custom', 'ecc', 'dark', 'light', 'transparent', 'margin', 'pngSize'].forEach(function (id) {
+  function setZoom(v) {
+    $('logoZoom').value = Math.max(40, Math.min(300, v));
+    render();
+  }
+  $('zoomOut').addEventListener('click', function () { setZoom(parseInt($('logoZoom').value, 10) - 10); });
+  $('zoomIn').addEventListener('click', function () { setZoom(parseInt($('logoZoom').value, 10) + 10); });
+  $('zoomReset').addEventListener('click', function () { setZoom(100); });
+
+  ['code', 'base', 'custom', 'ecc', 'dark', 'light', 'transparent', 'margin', 'pngSize', 'logoSize', 'logoZoom', 'bandColor'].forEach(function (id) {
     $(id).addEventListener('input', render);
     $(id).addEventListener('change', render);
   });
   document.querySelectorAll('input[name=mode]').forEach(function (el) { el.addEventListener('change', render); });
+  document.querySelectorAll('input[name=shape]').forEach(function (el) { el.addEventListener('change', onShapeChange); });
 
   render();
 })();
 </script>
 </body>
+
 </html>

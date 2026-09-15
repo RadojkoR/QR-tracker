@@ -1,3 +1,6 @@
 src/config.php
 data/*.sqlite*
 output/
+.git
+
+README.md
